@@ -8,19 +8,19 @@ import pypdfium2 as pdfium
 from paths import ROOT, MAP_DIR, FIGURE_DIR
 WORK=Path(__file__).parent;FIG=FIGURE_DIR;FIG.mkdir(parents=True,exist_ok=True)
 M=MAP_DIR
-meta=json.loads((M/'地图数据审计.json').read_text(encoding='utf-8'))
-audit=json.loads((M/'地图视野参数.json').read_text(encoding='utf-8'))
+meta=json.loads((M/'map_data_audit.json').read_text(encoding='utf-8'))
+audit=json.loads((M/'map_view_parameters.json').read_text(encoding='utf-8'))
 assert audit.get('model_version')==meta['model_version'], 'Capture current-model screenshots before drawing figure 15'
 assert audit.get('training_sha256')==meta['training_sha256'], 'Screenshot and current training cohort differ'
 assert audit.get('viewport')=={'width':1000,'height':620,'deviceScaleFactor':1}, 'Map screenshot proportions differ from the layout'
-html=M/'磷灰石分类结果_交互地图.html'
+html=M/'apatite_classification_map.html'
 assert audit.get('html_sha256')==hashlib.sha256(html.read_bytes()).hexdigest(), 'Screenshots predate the current HTML'
 focus_lat=float(meta['focus_lat']);focus_lon=float(meta['focus_lon'])
 W,H=482,550;c=canvas.Canvas(str(FIG/'Fig15.pdf'),pagesize=(W,H))
 labels=['IOCG','Kiruna-type','Orogenic','Porphyry','Skarn','Unmineralized'];cols=['#B75E61','#D6AD51','#70A47A','#729DC1','#A48BB5','#79B9B5']
 def text(x,y,s,size=6.5,align='left',color='#111111'):
  c.setFillColor(HexColor(color));c.setFont('Times-Roman',size);getattr(c,{'left':'drawString','right':'drawRightString','center':'drawCentredString'}[align])(x,y,str(s))
-with (M/'地图示例点_输入与概率.csv').open(encoding='utf-8-sig') as f:rows=list(csv.DictReader(f))
+with (M/'map_example_inputs_and_probabilities.csv').open(encoding='utf-8-sig') as f:rows=list(csv.DictReader(f))
 assert rows, 'Selected coordinate has no analyses'
 assert len({r['input_row'] for r in rows})==len(rows)
 for r in rows:

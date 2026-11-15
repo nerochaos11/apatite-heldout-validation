@@ -14,7 +14,7 @@ environment={'python':sys.version,'executable':sys.executable,'platform':platfor
              'packages':{name:importlib.metadata.version(name) for name in
                          ['numpy','pandas','scikit-learn','imbalanced-learn','lightgbm','xgboost','catboost','scipy','matplotlib','joblib']},
              'threads':4,'force_retrain':True,'previous_predictions_reused':False}
-(OUT/'环境版本.json').write_text(json.dumps(environment,ensure_ascii=False,indent=2),encoding='utf-8')
+(OUT/'environment_versions.json').write_text(json.dumps(environment,ensure_ascii=False,indent=2),encoding='utf-8')
 phases=[('primary',['experiment_core.py','--phase','primary']),
         ('legacy_control',['experiment_core.py','--phase','legacy_control']),
         ('benchmark',['experiment_core.py','--phase','benchmark']),
@@ -30,10 +30,10 @@ phases=[('primary',['experiment_core.py','--phase','primary']),
         ('variance_verification',['verify_variance.py']),
         ('application',['application.py'])]
 resume='--resume' in sys.argv
-history=json.loads((OUT/'重跑阶段记录.json').read_text(encoding='utf-8')) if resume else []
+history=json.loads((OUT/'retrain_stage_log.json').read_text(encoding='utf-8')) if resume else []
 for phase,args in phases:
     previous=next((r for r in history if r['phase']==phase),None)
-    input_hash=hashlib.sha256((OUT/'主数据_清洗后.csv').read_bytes()).hexdigest()
+    input_hash=hashlib.sha256((OUT/'main_data_clean.csv').read_bytes()).hexdigest()
     if previous and previous['exit_code']==0:
         assert previous['input_sha256']==input_hash
         print('ALREADY_COMPLETED_THIS_RUN',phase,flush=True)
@@ -51,7 +51,7 @@ for phase,args in phases:
     record.update(finished=datetime.datetime.now().isoformat(),exit_code=result.returncode)
     if previous:history[history.index(previous)]=record
     else:history.append(record)
-    (OUT/'重跑阶段记录.json').write_text(json.dumps(history,ensure_ascii=False,indent=2),encoding='utf-8')
+    (OUT/'retrain_stage_log.json').write_text(json.dumps(history,ensure_ascii=False,indent=2),encoding='utf-8')
     print('END',phase,record['exit_code'],record['finished'],flush=True)
     if result.returncode:
         print((LOG/(phase+'.log')).read_text(encoding='utf-8')[-6000:],flush=True)

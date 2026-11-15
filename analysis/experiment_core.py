@@ -46,7 +46,7 @@ def metrics(y,p,labs):
  out={'accuracy':accuracy_score(y,pred),'balanced_accuracy':recall_score(y,pred,labels=labs,average='macro',zero_division=0),'macro_precision':precision_score(y,pred,labels=labs,average='macro',zero_division=0),'macro_f1':f1_score(y,pred,labels=labs,average='macro',zero_division=0),'macro_roc_auc':roc_auc_score(oh,p,average='macro'),'macro_ap':average_precision_score(oh,p,average='macro'),'log_loss':log_loss(y,p,labels=labs),'mean_brier':np.mean((oh-p)**2)}
  return {k:float(v) for k,v in out.items()}
 def load(cohort='main'):
- return pd.read_csv(OUT/({'main':'主数据_清洗后.csv','raw':'成分候选_合并后.csv','dedup':'去重敏感性.csv'}[cohort]))
+ return pd.read_csv(OUT/({'main':'main_data_clean.csv','raw':'candidates_merged.csv','dedup':'sensitivity_deduplication.csv'}[cohort]))
 def run(d,scheme,name='LightGBM',seed=42,task='six',cohort='main',compat=False,use_smote=True,features=None):
  stem=f'{cohort}_{task}_{scheme}_{name}_s{seed}'+('_compat' if compat else '')+('_nosmote' if not use_smote else '')+('_{:d}features'.format(len(features)) if features is not None else '')
  dest=OUT/'OOF';dest.mkdir(exist_ok=True)
@@ -119,6 +119,6 @@ if __name__=='__main__':
  elif args.phase=='main_compat':
   for scheme in ['record','sample','source']:run(d,scheme,compat=True)
  elif args.phase=='legacy_control':
-  old=pd.read_csv(ROOT/'02_原始数据与来源/历史比较/6501条_分析记录.csv')
-  old.to_csv(OUT/'旧去重口径_6501.csv',index=False,encoding='utf-8-sig')
+  old=pd.read_csv(ROOT/'02_source_data/historical/6501_analyses.csv')
+  old.to_csv(OUT/'legacy_cohort_6501.csv',index=False,encoding='utf-8-sig')
   for scheme in ['record','sample','source']:run(old,scheme,cohort='legacy_6501')

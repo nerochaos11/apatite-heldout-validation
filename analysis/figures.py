@@ -17,8 +17,8 @@ WORK=Path(__file__).parent;FIG=FIGURE_DIR;FIG.mkdir(parents=True,exist_ok=True)
 plt.rcParams.update({'font.family':'Times New Roman','font.size':8,'axes.labelsize':8,'axes.titlesize':8.5,'axes.linewidth':.65,'xtick.labelsize':7,'ytick.labelsize':7,'xtick.direction':'in','ytick.direction':'in','xtick.top':True,'ytick.right':True,'lines.linewidth':1.1,'pdf.fonttype':42,'ps.fonttype':42,'savefig.facecolor':'white'})
 COL=['#B75E61','#D6AD51','#70A47A','#729DC1','#A48BB5','#79B9B5'];SHORT=['IOCG','Kiruna','Orogenic','Porphyry','Skarn','Unmin.'];SC=['record','sample','source'];SNAME=['Record','Sample','Source'];SCOL=['#3B3B3B','#4C86A1','#B56657'];MARK=['o','^','s','D','P','X']
 NUMBER_MAP={1:1,2:2,3:3,4:4,5:5,6:6,7:7,13:8,12:9,17:10,14:11,8:12,10:13,9:14,15:15,11:16,16:17}
-d=load();med=read_numeric_csv(OUT/'样品组中位数.csv');audit=json.loads((OUT/'清洗审计.json').read_text(encoding='utf-8'))
-allmetrics=read_numeric_csv(OUT/'实验指标总表.csv');rep=read_numeric_csv(OUT/'十种子汇总.csv')
+d=load();med=read_numeric_csv(OUT/'group_medians.csv');audit=json.loads((OUT/'screening_audit.json').read_text(encoding='utf-8'))
+allmetrics=read_numeric_csv(OUT/'all_experiment_metrics.csv');rep=read_numeric_csv(OUT/'ten_seed_summary.csv')
 def m(task='six',scheme='sample',name='LightGBM',seed=42,cohort='main',suffix=''):
  return json.loads((OUT/f'OOF/{cohort}_{task}_{scheme}_{name}_s{seed}{suffix}_metrics.json').read_text(encoding='utf-8'))
 def oof(task='six',scheme='sample',name='LightGBM',seed=42):return read_numeric_csv(OUT/f'OOF/main_{task}_{scheme}_{name}_s{seed}.csv')
@@ -132,11 +132,11 @@ def figure8():
   for i,sm in enumerate([True,False]):
    suff=('_nosmote' if not sm else '')+f'_{len(fs)}features';v=m(suffix=suff)['macro_f1'];yy=j+(i-.5)*.20;axs[0].scatter(v,yy,color=SCOL[i],s=23,marker=['o','s'][i],label=['SMOTE-Tomek','No resampling'][i] if j==0 else None);axs[0].text(v+.025,yy,f'{v:.3f}',va='center',fontsize=6.8)
  axs[0].set(yticks=range(3),yticklabels=['Six + ratios','Six elements','Three ratios'],xlim=(0,1),ylim=(2.5,-.5),xlabel='Macro-F1');axs[0].legend(frameon=False,fontsize=6.4,loc='lower left',handlelength=1);axs[0].grid(axis='x',lw=.3,color='#dddddd');title(axs[0],'(a) Feature representation')
- q=read_numeric_csv(OUT/'评分对象比较.csv');axs[1].scatter(q.macro_f1,range(3),color=['#7390A0','#A5B6BF','#597F92'],s=26,marker='D')
+ q=read_numeric_csv(OUT/'scoring_target_comparison.csv');axs[1].scatter(q.macro_f1,range(3),color=['#7390A0','#A5B6BF','#597F92'],s=26,marker='D')
  for j,v in enumerate(q.macro_f1):axs[1].text(v+.025,j,f'{v:.3f}',va='center',fontsize=7)
  axs[1].set(yticks=range(3),yticklabels=['All records','First / group','Mean / group'],xlim=(0,1),ylim=(2.5,-.5),xlabel='Macro-F1');axs[1].grid(axis='x',lw=.3,color='#dddddd');title(axs[1],'(b) Scoring targets');save(fig,8)
 def figure9():
- q=json.loads((OUT/'校准.json').read_text(encoding='utf-8'));fig,axs=plt.subplots(2,2,figsize=(6.69,4.4),layout='constrained')
+ q=json.loads((OUT/'calibration.json').read_text(encoding='utf-8'));fig,axs=plt.subplots(2,2,figsize=(6.69,4.4),layout='constrained')
  for ax,k,letter in zip(axs[0],['before','after'],'ab'):
   bins=pd.DataFrame(q[k+'_bins']);nn=bins.n>0;color=SCOL[2 if k=='before' else 1];ax.plot([0,1],[0,1],ls='--',color='#999999',lw=.7);ax.plot(bins.loc[nn,'confidence'],bins.loc[nn,'accuracy'],color=color,lw=.9);ax.scatter(bins.loc[nn,'confidence'],bins.loc[nn,'accuracy'],s=10+26*np.sqrt(bins.loc[nn,'n']/bins.n.max()),color=color,edgecolors='white',lw=.4,zorder=3);ax.set(xlim=(0,1),ylim=(0,1),xlabel='Mean top-1 probability',ylabel='Observed accuracy');title(ax,f'({letter}) '+('Before scaling' if k=='before' else 'After scaling'))
  for k,c in [('before',SCOL[2]),('after',SCOL[1])]:bins=pd.DataFrame(q[k+'_bins']);axs[1,0].stairs(bins.n,np.arange(11)/10,color=c,label=k.capitalize(),lw=1.1)
@@ -146,22 +146,22 @@ def figure9():
  axs[1,1].set(xticks=range(3),xticklabels=['Log loss','ECE','Mean Brier'],ylabel='Score (lower is better)',ylim=(0,1));title(axs[1,1],'(d) Probability quality');save(fig,9)
 def featurelabel(x):return x.replace('_log','').replace('_Y_ratio','/Y').replace('Th_U_ratio','Th/U')
 def figure10():
- q=read_numeric_csv(OUT/'SHAP逐折.csv');agg=q.groupby('feature').mean(numeric_only=True).sort_values('mean_abs_shap',ascending=False);order=agg.index.tolist();fig=plt.figure(figsize=(6.69,4.8),layout='constrained');gs=fig.add_gridspec(2,2,height_ratios=[1,1]);a=fig.add_subplot(gs[0,0]);b=fig.add_subplot(gs[0,1]);c=fig.add_subplot(gs[1,:])
+ q=read_numeric_csv(OUT/'SHAP_per_fold.csv');agg=q.groupby('feature').mean(numeric_only=True).sort_values('mean_abs_shap',ascending=False);order=agg.index.tolist();fig=plt.figure(figsize=(6.69,4.8),layout='constrained');gs=fig.add_gridspec(2,2,height_ratios=[1,1]);a=fig.add_subplot(gs[0,0]);b=fig.add_subplot(gs[0,1]);c=fig.add_subplot(gs[1,:])
  a.barh(range(9),agg.mean_abs_shap,xerr=q.groupby('feature').mean_abs_shap.std().reindex(order),color='#66889A',height=.65,error_kw={'lw':.7,'capsize':2});a.set_yticks(range(9),[featurelabel(f) for f in order]);a.invert_yaxis();a.set_xlabel('Mean |SHAP| (raw-score units)');title(a,'(a) Diagnostic feature contributions')
  ranks=q.pivot(index='feature',columns='fold',values='rank').reindex(order);im=b.imshow(ranks,aspect='auto',cmap='Blues_r',vmin=1,vmax=9);b.set_xticks(range(5),range(1,6));b.set_yticks(range(9),[featurelabel(f) for f in order]);b.set_xlabel('Outer sample-disjoint fold');title(b,'(b) Fold-specific ranks')
  for i in range(9):
   for j in range(5):b.text(j,i,str(ranks.iloc[i,j]),ha='center',va='center',fontsize=7,color='white' if ranks.iloc[i,j]<4 else '#222222')
- cc=read_numeric_csv(OUT/'SHAP逐类别逐折.csv').groupby(['cls','feature']).mean_abs_shap.mean().unstack().reindex(index=LABELS,columns=order);im=c.imshow(cc,aspect='auto',cmap='YlGnBu',vmin=0);c.set_xticks(range(9),[featurelabel(f) for f in order]);c.set_yticks(range(6),SHORT);title(c,'(c) Mean absolute contribution by model output class');fig.colorbar(im,ax=c,shrink=.8,label='Mean |SHAP|');save(fig,10)
+ cc=read_numeric_csv(OUT/'SHAP_per_class_per_fold.csv').groupby(['cls','feature']).mean_abs_shap.mean().unstack().reindex(index=LABELS,columns=order);im=c.imshow(cc,aspect='auto',cmap='YlGnBu',vmin=0);c.set_xticks(range(9),[featurelabel(f) for f in order]);c.set_yticks(range(6),SHORT);title(c,'(c) Mean absolute contribution by model output class');fig.colorbar(im,ax=c,shrink=.8,label='Mean |SHAP|');save(fig,10)
 def figure11():
- a=json.loads((OUT/'应用资料汇总.json').read_text(encoding='utf-8'));fig,axs=plt.subplots(1,2,figsize=(6.69,2.6),layout='constrained');left=np.zeros(3)
+ a=json.loads((OUT/'application_summary.json').read_text(encoding='utf-8'));fig,axs=plt.subplots(1,2,figsize=(6.69,2.6),layout='constrained');left=np.zeros(3)
  for l,col,sn in zip(LABELS,COL,SHORT):v=np.array([r['prediction_counts'].get(l,0)/r['n'] for r in a]);axs[0].barh(range(3),v,left=left,color=col,label=sn,height=.6);left+=v
  axs[0].set(yticks=range(3),yticklabels=[r['dataset']+f' (n={r["n"]})' for r in a],xlabel='Predicted fraction',xlim=(0,1));axs[0].invert_yaxis();title(axs[0],'(a) Prediction composition')
  rng=np.random.default_rng(42)
  for j,r in enumerate(a):
-  p=read_numeric_csv(OUT/f'应用资料_{r["dataset"]}_预测.csv').confidence;axs[1].scatter(p,j+rng.uniform(-.16,.16,len(p)),color='#7092A3',alpha=.35,s=6,linewidths=0,rasterized=True);axs[1].scatter(r['mean_confidence'],j,marker='D',s=22,color='#222222',zorder=4);axs[1].text(.99,j-.27,f'mean {r["mean_confidence"]:.3f}',ha='right',fontsize=6.4)
+  p=read_numeric_csv(OUT/f'application_{r["dataset"]}_predictions.csv').confidence;axs[1].scatter(p,j+rng.uniform(-.16,.16,len(p)),color='#7092A3',alpha=.35,s=6,linewidths=0,rasterized=True);axs[1].scatter(r['mean_confidence'],j,marker='D',s=22,color='#222222',zorder=4);axs[1].text(.99,j-.27,f'mean {r["mean_confidence"]:.3f}',ha='right',fontsize=6.4)
  axs[1].set(yticks=range(3),yticklabels=[r['dataset'] for r in a],xlabel='Uncalibrated top-1 probability',xlim=(0,1),ylim=(2.5,-.5));title(axs[1],'(b) Record-wise confidence');fig.legend(*axs[0].get_legend_handles_labels(),ncol=6,loc='outside upper center',frameon=False,fontsize=7);save(fig,11)
 def figure12():
- a=read_numeric_csv(OUT/'逐来源逐类别诊断.csv');ncl=d.groupby('source').Dtype.nunique();a=a[a.source.isin(ncl[ncl==1].index)];top=a[a.protocol=='source_fivefold'].nlargest(14,'n').sort_values('n').source.tolist();fig,axs=plt.subplots(1,2,figsize=(6.69,4),layout='constrained',gridspec_kw={'width_ratios':[1.25,1]})
+ a=read_numeric_csv(OUT/'per_source_diagnostics.csv');ncl=d.groupby('source').Dtype.nunique();a=a[a.source.isin(ncl[ncl==1].index)];top=a[a.protocol=='source_fivefold'].nlargest(14,'n').sort_values('n').source.tolist();fig,axs=plt.subplots(1,2,figsize=(6.69,4),layout='constrained',gridspec_kw={'width_ratios':[1.25,1]})
  paired=a.pivot(index='source',columns='protocol',values='recall').reindex(top)
  for j,row in enumerate(paired.itertuples()):axs[0].plot([row.source_fivefold,row.LOSO],[j,j],color='#c2c8cb',lw=.7,zorder=1)
  for p,off,col in [('source_fivefold',-.1,SCOL[1]),('LOSO',.1,SCOL[2])]:
@@ -186,7 +186,7 @@ def figure13():
  fig.colorbar(im,ax=list(axs[1]),location='bottom',shrink=.5,pad=.02,aspect=35,label='Row percentage (%)')
  save(fig,13)
 def figure14():
- q=read_numeric_csv(OUT/'嵌套方差_REML.csv').set_index('element').loc[E];fig,axs=plt.subplots(1,3,figsize=(6.69,3.0),layout='constrained',gridspec_kw={'width_ratios':[1,1.05,1]});bottom=np.zeros(6)
+ q=read_numeric_csv(OUT/'nested_variance_REML.csv').set_index('element').loc[E];fig,axs=plt.subplots(1,3,figsize=(6.69,3.0),layout='constrained',gridspec_kw={'width_ratios':[1,1.05,1]});bottom=np.zeros(6)
  for key,col,name in [('source_fraction','#66889A','Source'),('sample_fraction','#ADBFC6','Sample'),('residual_fraction','#D8B88A','Residual')]:axs[0].bar(range(6),q[key],bottom=bottom,color=col,label=name,width=.7);bottom+=q[key].to_numpy()
  axs[0].set(xticks=range(6),xticklabels=E,ylim=(0,1),ylabel='Conditional variance fraction');axs[0].legend(frameon=False,fontsize=6.3,ncol=3,loc='upper left',bbox_to_anchor=(-.08,-.13),columnspacing=.8,handlelength=1);title(axs[0],'(a) Nested REML components')
  for j,e in enumerate(E):axs[1].plot([q.source_fraction.iloc[j],q.same_sample_icc.iloc[j]],[j,j],color='#bbbbbb',lw=.8)
@@ -196,8 +196,8 @@ def figure14():
 def figure16():
  fig,axs=plt.subplots(1,3,figsize=(6.69,2.7),layout='constrained')
  # Explicit, read-only historical baseline; no previous metrics are copied into the new OUT.
- hist=read_numeric_csv(ROOT/'02_原始数据与来源/历史比较/3522条_六元素与派生特征.csv')
- hist_metrics=json.loads((ROOT/'02_原始数据与来源/历史比较/3522条_验证结果.json').read_text(encoding='utf-8'))
+ hist=read_numeric_csv(ROOT/'02_source_data/historical/3522_six_elements_derived.csv')
+ hist_metrics=json.loads((ROOT/'02_source_data/historical/3522_validation_results.json').read_text(encoding='utf-8'))
  old=hist.groupby('Dtype').Citation.nunique().reindex(LABELS,fill_value=0).to_numpy();new=d.groupby('Dtype').source.nunique().reindex(LABELS,fill_value=0).to_numpy()
  for j,(before,after) in enumerate(zip(old,new)):axs[0].plot([before,after],[j,j],color='#c6cdd1',lw=.9);axs[0].scatter(before,j,color='#adb9c0',marker='o',s=18,label=f'Previous {len(hist):,}' if j==0 else None);axs[0].scatter(after,j,color=SCOL[1],marker='s',s=18,label=f'Current {len(d):,}' if j==0 else None);axs[0].text(max(before,after)+3,j,f'{before} / {after}',va='center',fontsize=6.3)
  axs[0].set(yticks=range(6),yticklabels=SHORT,xlabel='Source identifiers',xlim=(0,float(max(old.max(),new.max()))*1.38));axs[0].invert_yaxis();axs[0].legend(frameon=False,fontsize=6.1,loc='upper right');title(axs[0],'(a) Source coverage')
@@ -207,7 +207,7 @@ def figure16():
  for c,color,n in [('raw','#b6c3c9','Candidates'),('dedup','#8ba6b4','Deduplicated'),('main','#476D83','Main')]:axs[2].plot(range(3),[m(scheme=s,cohort=c)['macro_f1'] for s in SC],marker='o',ms=3,color=color,label=n)
  axs[2].set(xticks=range(3),xticklabels=SNAME,ylim=(0,1),ylabel='Macro-F1');axs[2].legend(frameon=False,fontsize=6.3);title(axs[2],'(c) Cohort processing sensitivity');save(fig,16)
 def figure17():
- q=read_numeric_csv(OUT/'Mercer案例_样品中位数.csv');units=['Amphibole alteration zone','Magnetite ore','Hematite ore','Breccia pipe','Regional igneous'];uc=['#648FA4','#889B61','#B16E62','#967CAA','#B9B9B1'];un=['Amphibole alteration','Magnetite ore','Hematite ore','Breccia pipe','Regional igneous'];um=['o','^','s','D','P'];fig=plt.figure(figsize=(6.69,6.0),layout='constrained');gs=fig.add_gridspec(2,2,height_ratios=[.85,1.4]);a=fig.add_subplot(gs[0,0]);b=fig.add_subplot(gs[0,1]);c=fig.add_subplot(gs[1,0]);axd=fig.add_subplot(gs[1,1])
+ q=read_numeric_csv(OUT/'Mercer_case_sample_medians.csv');units=['Amphibole alteration zone','Magnetite ore','Hematite ore','Breccia pipe','Regional igneous'];uc=['#648FA4','#889B61','#B16E62','#967CAA','#B9B9B1'];un=['Amphibole alteration','Magnetite ore','Hematite ore','Breccia pipe','Regional igneous'];um=['o','^','s','D','P'];fig=plt.figure(figsize=(6.69,6.0),layout='constrained');gs=fig.add_gridspec(2,2,height_ratios=[.85,1.4]);a=fig.add_subplot(gs[0,0]);b=fig.add_subplot(gs[0,1]);c=fig.add_subplot(gs[1,0]);axd=fig.add_subplot(gs[1,1])
  assert set(q.case_unit)<=set(units), 'Map any new documented geological units explicitly before plotting'
  for u,col,name,mk in zip(units,uc,un,um):
   g=q[q.case_unit==u];a.scatter(g['Sr/Y'],g['Th/U'],s=24,color=col,marker=mk,edgecolors='#333333',lw=.4,label=name)
@@ -225,7 +225,7 @@ def figure17():
  for t in c.get_xticklabels()[:2]:t.set_rotation(90)
  prob=[]
  for s in ['sample','source']:
-  pp=read_numeric_csv(OUT/f'Mercer案例_{s}_预测.csv');prob.append(pp.groupby('Sample_Name')['p_Kiruna-type'].mean().reindex(q.Sample_Name).to_numpy())
+  pp=read_numeric_csv(OUT/f'Mercer_case_{s}_predictions.csv');prob.append(pp.groupby('Sample_Name')['p_Kiruna-type'].mean().reindex(q.Sample_Name).to_numpy())
  v=np.array(prob).T;im=axd.imshow(v,aspect='auto',cmap='Blues',vmin=0,vmax=1);axd.set_xticks([0,1],['Sample OOF','Source OOF']);axd.set_yticks(range(len(q)),q.Sample_Name,fontsize=6);title(axd,'(d) Mean Kiruna-type probability');fig.colorbar(im,ax=axd,location='bottom',shrink=.72,label='Uncalibrated probability',pad=.025,aspect=30)
  for i in range(len(q)):
   for j in range(2):axd.text(j,i,'<0.01' if 0<v[i,j]<.005 else f'{v[i,j]:.2f}',ha='center',va='center',fontsize=5.6,color='white' if v[i,j]>.6 else '#243238')

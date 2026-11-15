@@ -26,8 +26,8 @@ def calibration():
   print('calibration',k,t,flush=True)
  a,b=metrics(y,raw,labs),metrics(y,cal,labs);a['ece'],ar=ece(raw,yi);b['ece'],br=ece(cal,yi)
  assert np.array_equal(raw.argmax(1),cal.argmax(1))
- save('校准.json',dict(temperatures=temps,before=a,after=b,before_bins=ar,after_bins=br))
- pd.DataFrame({**{'raw_'+l:raw[:,j] for j,l in enumerate(labs)},**{'cal_'+l:cal[:,j] for j,l in enumerate(labs)},'y_true':y,'input_row':d.input_row}).to_csv(OUT/'校准逐记录.csv',index=False,encoding='utf-8-sig')
+ save('calibration.json',dict(temperatures=temps,before=a,after=b,before_bins=ar,after_bins=br))
+ pd.DataFrame({**{'raw_'+l:raw[:,j] for j,l in enumerate(labs)},**{'cal_'+l:cal[:,j] for j,l in enumerate(labs)},'y_true':y,'input_row':d.input_row}).to_csv(OUT/'calibration_per_record.csv',index=False,encoding='utf-8-sig')
 def shap():
  rows=[];classrows=[]
  for k,(tr,te) in enumerate(split(d,'sample'),1):
@@ -37,8 +37,8 @@ def shap():
   rows += [dict(fold=k,feature=f,mean_abs_shap=float(avg[j]),rank=int(order[j])) for j,f in enumerate(F)]
   classrows += [dict(fold=k,cls=l,feature=f,mean_abs_shap=float(np.abs(v[:,c,j]).mean())) for c,l in enumerate(labs) for j,f in enumerate(F)]
   print('shap',k,flush=True)
- pd.DataFrame(rows).to_csv(OUT/'SHAP逐折.csv',index=False,encoding='utf-8-sig')
- pd.DataFrame(classrows).to_csv(OUT/'SHAP逐类别逐折.csv',index=False,encoding='utf-8-sig')
+ pd.DataFrame(rows).to_csv(OUT/'SHAP_per_fold.csv',index=False,encoding='utf-8-sig')
+ pd.DataFrame(classrows).to_csv(OUT/'SHAP_per_class_per_fold.csv',index=False,encoding='utf-8-sig')
 def variance():
  results=[]
  for element in E:
@@ -65,7 +65,7 @@ def variance():
   a,b,e=np.exp(fit.x);total=a+b+e
   results.append(dict(element=element,source_variance=a,sample_variance=b,residual_variance=e,source_fraction=a/total,sample_fraction=b/total,residual_fraction=e/total,same_sample_icc=(a+b)/total,converged=bool(fit.success),boundary=bool((fit.x<-17.9).any()),objective=fit.fun))
   print('REML',element,results[-1],flush=True)
- pd.DataFrame(results).to_csv(OUT/'嵌套方差_REML.csv',index=False,encoding='utf-8-sig')
+ pd.DataFrame(results).to_csv(OUT/'nested_variance_REML.csv',index=False,encoding='utf-8-sig')
 def loso():
  dest=OUT/'LOSO';dest.mkdir(exist_ok=True);allrows=[]
  for src in sorted(d.source.unique()):
@@ -75,12 +75,12 @@ def loso():
   mo=pipe('LightGBM',42);mo.fit(X.iloc[tr],yi[tr]);p=mo.predict_proba(X.iloc[te]);assert np.array_equal(mo.classes_,np.arange(6))
   q=pd.DataFrame(p,columns=['p_'+l for l in labs]);q['y_true']=y[te];q['y_pred']=np.array(labs)[p.argmax(1)];q['source']=src;q['input_row']=d.input_row.to_numpy()[te]
   q.to_csv(f,index=False,encoding='utf-8-sig');allrows.append(q);print('LOSO',src,len(q),float((q.y_true==q.y_pred).mean()),flush=True)
- pd.concat(allrows).to_csv(OUT/'LOSO_逐记录.csv',index=False,encoding='utf-8-sig')
+ pd.concat(allrows).to_csv(OUT/'LOSO_record_level.csv',index=False,encoding='utf-8-sig')
 def fullfit():
  MODEL_DIR.mkdir(parents=True,exist_ok=True)
  mo=pipe('LightGBM',42);mo.fit(X,yi)
- training_hash=hashlib.sha256((OUT/'主数据_清洗后.csv').read_bytes()).hexdigest()
- joblib.dump(dict(pipeline=mo,labels=labs,features=F,n=len(d),training_sha256=training_hash,model_version='LGBM-main-refit-20261022'),MODEL_DIR/'LightGBM_主数据_全量重拟合.joblib')
+ training_hash=hashlib.sha256((OUT/'main_data_clean.csv').read_bytes()).hexdigest()
+ joblib.dump(dict(pipeline=mo,labels=labs,features=F,n=len(d),training_sha256=training_hash,model_version='LGBM-main-refit-20261022'),MODEL_DIR/'LightGBM_main_full_refit.joblib')
  print('fullfit saved',flush=True)
 if __name__=='__main__':
  import argparse

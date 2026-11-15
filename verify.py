@@ -2,9 +2,9 @@ from pathlib import Path
 import argparse,ast,csv,hashlib,json,math,os,subprocess,sys
 sys.dont_write_bytecode=True
 ROOT=Path(__file__).resolve().parent
-D=ROOT/'01_数据与结果'
-M=ROOT/'06_模型与地图'
-W=ROOT/'04_分析代码'
+D=ROOT/'01_data_and_results'
+M=ROOT/'06_model_and_map'
+W=ROOT/'04_analysis_code'
 def read(p):return json.loads(p.read_text(encoding='utf-8-sig'))
 def rows(p):
  with p.open(encoding='utf-8-sig',newline='')as f:return list(csv.DictReader(f))
@@ -43,17 +43,17 @@ def evaluate(rs,labels,prefix='p_'):
   a,b=ranking([p[j]for p in pp],[int(v==j)for v in yy]);aucs.append(a);aps.append(b)
  return dict(accuracy=sum(cm[j][j]for j in range(k))/n,balanced_accuracy=sum(recall)/k,macro_precision=sum(precision)/k,macro_f1=sum(f1)/k,macro_roc_auc=sum(aucs)/k,macro_ap=sum(aps)/k,log_loss=loss/n,mean_brier=brier/(n*k))
 def verify():
- manifest={r['file']:{'bytes':int(r['bytes']),'sha256':r['sha256']}for r in rows(ROOT/'文件校验值.csv')};version=read(ROOT/'版本信息.json')
+ manifest={r['file']:{'bytes':int(r['bytes']),'sha256':r['sha256']}for r in rows(ROOT/'file_checksums.csv')};version=read(ROOT/'version_info.json')
  for rel,entry in manifest.items():
   p=ROOT/rel
   assert p.is_file()and p.stat().st_size==entry['bytes']and sha(p)==entry['sha256'],rel
   if p.suffix=='.py':ast.parse(p.read_text(encoding='utf-8-sig'),filename=rel)
- data=rows(D/'主数据_清洗后.csv');assert(len(data),len({r['sample']for r in data}),len({r['source']for r in data}))==(6502,4223,90)
- assert sha(D/'主数据_清洗后.csv')==version['main_data_sha256']
+ data=rows(D/'main_data_clean.csv');assert(len(data),len({r['sample']for r in data}),len({r['source']for r in data}))==(6502,4223,90)
+ assert sha(D/'main_data_clean.csv')==version['main_data_sha256']
  assert len({r['input_row']for r in data})==6502
  assert all(float(r[e])>0 and math.isfinite(float(r[e]))for r in data for e in ['Th','U','Sr','Y','Nd','La'])
  assert sum(r['restored_reported_analysis'].lower()=='true'for r in data)==1
- assert len(rows(D/'Mercer231_逐行纳入与匹配审计.csv'))==231 and len(rows(D/'Mercer231_非正值排除44条.csv'))==44
+ assert len(rows(D/'Mercer231_row_inclusion_audit.csv'))==231 and len(rows(D/'Mercer231_nonpositive_excluded_44.csv'))==44
  all_metrics=sorted((D/'OOF').glob('*_metrics.json'));assert len(all_metrics)==106
  core_sha=version['analysis_module_sha256_at_run']
  for i,p in enumerate(all_metrics,1):
@@ -84,34 +84,34 @@ def verify():
   for r in rs:
    probs=[float(r['p_'+c])for c in labels];assert abs(sum(probs)-1)<1e-7 and all(math.isfinite(v)and 0<=v<=1 for v in probs);assert r['y_pred']==labels[max(range(len(labels)),key=lambda j:probs[j])]
  assert len(got_ids)==6502 and set(got_ids)=={r['input_row']for r in data}
- cal=read(D/'校准.json');calrows=rows(D/'校准逐记录.csv');labels=sorted({r['Dtype']for r in data});assert len(calrows)==6502
+ cal=read(D/'calibration.json');calrows=rows(D/'calibration_per_record.csv');labels=sorted({r['Dtype']for r in data});assert len(calrows)==6502
  for prefix,name in [('raw_','before'),('cal_','after')]:
   got=evaluate(calrows,labels,prefix)
   for key,val in got.items():assert abs(val-float(cal[name][key]))<1e-6,('calibration',name,key)
   assert sum(int(r['n'])for r in cal[name+'_bins'])==6502
- assert len(rows(D/'嵌套方差_REML.csv'))==6
- for r in rows(D/'嵌套方差_REML.csv'):
+ assert len(rows(D/'nested_variance_REML.csv'))==6
+ for r in rows(D/'nested_variance_REML.csv'):
   assert r['converged'].lower()=='true';assert abs(sum(float(r[k])for k in ['source_fraction','sample_fraction','residual_fraction'])-1)<1e-7
- mapmeta=read(M/'交互地图/地图数据审计.json');assert mapmeta['training_sha256']==version['main_data_sha256']and mapmeta['training_n']==6502
- assert sha(M/'LightGBM_主数据_全量重拟合.joblib')==version['model_sha256']
- interval=[r for r in rows(D/'实验指标总表.csv')if r['stem']=='main_six_source_LightGBM_s42'];assert len(interval)==1
+ mapmeta=read(M/'interactive_map/map_data_audit.json');assert mapmeta['training_sha256']==version['main_data_sha256']and mapmeta['training_n']==6502
+ assert sha(M/'LightGBM_main_full_refit.joblib')==version['model_sha256']
+ interval=[r for r in rows(D/'all_experiment_metrics.csv')if r['stem']=='main_six_source_LightGBM_s42'];assert len(interval)==1
  interval=interval[0];assert int(interval['bootstrap_replicates'])==2000 and interval['bootstrap_unit']=='source'and interval['bootstrap_refit']=='False'
  assert 0<float(interval['macro_f1_bootstrap_low95'])<float(interval['macro_f1_bootstrap_high95'])<1
  print(json.dumps(dict(files=len(manifest),main_n=6502,samples=4223,sources=90,oof=106,loso=90,all_saved_metrics_verified=True,default_performs_no_training=True),ensure_ascii=False),flush=True)
 
 if __name__=='__main__':
- p=argparse.ArgumentParser(description='校验数据，或在独立目录重新计算。')
- p.add_argument('--retrain',action='store_true',help='重新准备数据并执行全部分析；输出到再计算目录')
- p.add_argument('--redraw-statistics',action='store_true',help='从保存结果重绘统计图')
- p.add_argument('--redraw-map',action='store_true',help='从随包固定视野及图件数据重绘图15')
+ p=argparse.ArgumentParser(description='verify data, or recompute in a separate directory.')
+ p.add_argument('--retrain',action='store_true',help='reprepare the data and run all analyses; output goes to recomputed/')
+ p.add_argument('--redraw-statistics',action='store_true',help='redraw statistical figures from saved results')
+ p.add_argument('--redraw-map',action='store_true',help='redraw the map figure from the bundled view and figure data')
  a=p.parse_args();verify()
  env=os.environ.copy();env['PYTHONDONTWRITEBYTECODE']='1';env['PYTHONIOENCODING']='utf-8'
  if a.retrain:
-  base=ROOT/'再计算';base.mkdir(exist_ok=True)
+  base=ROOT/'recomputed';base.mkdir(exist_ok=True)
   env['APATITE_FORCE_RETRAIN']='1'
-  env['APATITE_RESULTS_DIR']=str(base/'数据与结果')
-  env['APATITE_APPLICATION_DIR']=str(base/'模型与地图')
-  env['APATITE_FIGURE_DIR']=str(base/'图件')
+  env['APATITE_RESULTS_DIR']=str(base/'data_and_results')
+  env['APATITE_APPLICATION_DIR']=str(base/'model_and_map')
+  env['APATITE_FIGURE_DIR']=str(base/'figures')
   for script in ['prepare_data.py','run_all.py']:
    subprocess.run([sys.executable,str(W/script)],cwd=ROOT,env=env,check=True)
  if a.redraw_statistics:

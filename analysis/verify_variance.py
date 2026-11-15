@@ -14,5 +14,5 @@ for a,b,e in [[.1,.2,.3],[1,.05,.01],[.01,.01,.5]]:
    ld+=(n-1)*np.log(e)+np.log(den);t+=np.sum(z.Th_log**2)/e-b*s*s/(e*den)
   fac=a/(1+a*Q);ld+=np.log1p(a*Q);yy+=t-fac*R*R;xx+=np.diag(qc)-fac*np.outer(qc,qc);xy+=rc-fac*qc*R
  block=.5*(ld+np.linalg.slogdet(xx)[1]+yy-xy@np.linalg.solve(xx,xy)+(len(q)-6)*np.log(2*np.pi));errors.append(abs(dense-block));assert errors[-1]<1e-7
-print('协方差计算最大差值：',format(max(errors),'.3g'))
+print('maximum covariance difference: ',format(max(errors),'.3g'))
 print('Dense covariance verification',errors)
